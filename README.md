@@ -28,7 +28,7 @@ The source for that image lives in [docker/image/api-service/](docker/image/api-
                  Ingress (webapp.local)
                           │
                           ▼
-            Service "webapp" (ClusterIP :80 → :3000)
+            Service "webapp" (ClusterIP :80 --> :3000)
                           │
                           ▼
           Deployment "webapp-deployment" (2 replicas)
@@ -44,7 +44,7 @@ The source for that image lives in [docker/image/api-service/](docker/image/api-
             init.sql seeds `student.users`
                           │
                           ▼
-        PVC "mysql-pv-claim" → PV "mysql-pv"
+        PVC "mysql-pv-claim" --> PV "mysql-pv"
         StorageClass "manual" (hostPath /mnt/data/mysql)
 ```
 
@@ -96,7 +96,7 @@ kubectl apply -k yamls/
 ```
 
 > The webapp Deployment already references `gauravgn90/kube-app:v6`, so nothing
-> needs to be built locally — Kubernetes pulls it from Docker Hub.
+> needs to be built locally - Kubernetes pulls it from Docker Hub.
 
 ### 4. Wait for the pods to be ready
 
@@ -261,15 +261,111 @@ kubectl get hpa -n student-app
 kubectl get ingress -n student-app
 ```
 
+
+
+---
+
+## Kill API microservice pod --> self-healing
+
+```bash
+# Watch in one terminal
+kubectl get pods -n student-app -w
+```
+
+In another terminal:
+
+```bash
+# Delete ONE webapp pod (grab a name from `kubectl get pods` if you prefer)
+kubectl delete pod -n student-app "$(kubectl get pods -n student-app -l app=webapp -o jsonpath='{.items[0].metadata.name}')"
+```
+
+```bash
+curl -s http://webapp.local/users | jq '.[] | .name'   # still responds during recovery
+kubectl get pods -n student-app          # back to 2/2 Running
+```
+
+---
+
+## Kill database pod --> regenerates AND keeps old data (persistence)
+
+```bash
+# Show data exists BEFORE
+curl -s http://webapp.local/users | jq
+
+# Delete the mysql pod
+kubectl delete pod -n student-app -l app=mysql
+
+# Watch it come back (Recreate strategy: old pod terminates, new one starts)
+kubectl get pods -n student-app -w
+```
+
+Once `mysql` is `Running`/`Ready` again:
+
+```bash
+# Same records are still there --> data survived because /var/lib/mysql is on the PV
+curl -s http://webapp.local/users | jq
+```
+---
+
+
+## Other Pointers
+
+**Deployments**
+- `webapp-deployment`: 2 replicas, stateless API tier.
+- `mysql`: 1 replica, stateful, backed by PV/PVC.
+
+**Self-healing**
+- Killing a webapp pod --> ReplicaSet recreates it to hold desired count.
+- Liveness/readiness probes on both tiers restart unhealthy containers and keep
+  traffic off not-ready pods.
+
+**Persistence**
+- `mysql-pv` (hostPath) + `mysql-pv-claim`, `StorageClass manual` with
+  `WaitForFirstConsumer`.
+- Data in `/var/lib/mysql` survives pod deletion.
+
+**Deployment strategy**:
+
+```bash
+kubectl get deploy webapp-deployment -n student-app -o jsonpath='{.spec.strategy}'; echo
+kubectl get deploy mysql -n student-app -o jsonpath='{.spec.strategy}'; echo
+```
+
+- **webapp --> `RollingUpdate`** (`maxSurge:1, maxUnavailable:0`): zero-downtime
+  upgrades for the stateless tier.
+- **mysql --> `Recreate`**: never run two pods against one RWO volume (avoids data
+  corruption).
+- Optionally trigger a rollout live:
+
+  ```bash
+  kubectl rollout restart deploy/webapp-deployment -n student-app
+  kubectl rollout status deploy/webapp-deployment -n student-app
+  ```
+
+**FinOps considerations**:
+
+```bash
+kubectl get hpa -n student-app
+kubectl describe hpa webapp-hpa -n student-app | head -20
+kubectl top pods -n student-app   # needs metrics-server
+```
+
+- **HPA** (2-->10 replicas at 60% CPU): scales out only under load, scales back in
+  when idle - pay for capacity only when needed.
+- **resource requests/limits** on every container: requests enable
+  bin-packing/right-sizing; limits cap spend and prevent noisy-neighbor waste.
+- **minikube single node**: minimal footprint for dev/demo instead of an
+  always-on managed cluster.
+
 Common issues:
 
-- **Webapp stuck in `Init:`** — MySQL isn't ready yet; the init container is
+- **Webapp stuck in `Init:`** -MySQL isn't ready yet; the init container is
   waiting on port 3306. Check the `mysql` pod.
-- **`webapp.local` doesn't resolve** — confirm the `/etc/hosts` entry and that
+- **`webapp.local` doesn't resolve** -confirm the `/etc/hosts` entry and that
   `minikube tunnel` is running (Docker driver).
-- **HPA shows `<unknown>` targets** — `metrics-server` add-on isn't enabled or
+- **HPA shows `<unknown>` targets** -`metrics-server` add-on isn't enabled or
   hasn't scraped yet.
-- **PVC `Pending`** — the `manual` StorageClass uses `WaitForFirstConsumer`, so
+- **PVC `Pending`** -the `manual` StorageClass uses `WaitForFirstConsumer`, so
   the PV binds only once the MySQL pod is scheduled. This is expected.
 
 ---
