@@ -1,0 +1,10 @@
+# Static (manual) provisioning => no external provisioner.
+# WaitForFirstConsumer delays PV binding until the MySQL pod is scheduled,
+# which is the correct mode for node-local hostPath volumes.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: manual
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain

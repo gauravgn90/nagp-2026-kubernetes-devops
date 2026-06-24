@@ -1,0 +1,22 @@
+# hostPath PV for single-node clusters (minikube / kind / docker-desktop).
+# storageClassName now matches the StorageClass ("manual") and the PVC.
+# Labels are added so the PVC's selector can bind to THIS volume.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mysql-pv
+  labels:
+    app: mysql
+    tier: database
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  hostPath:
+    # Do NOT point this at the host's real /var/lib/mysql.
+    # Use a dedicated data dir; it is created automatically if missing.
+    path: /mnt/data/mysql
+    type: DirectoryOrCreate

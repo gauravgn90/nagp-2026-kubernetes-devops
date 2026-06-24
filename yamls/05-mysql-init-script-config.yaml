@@ -1,0 +1,30 @@
+# The ONE init ConfigMap. The whole map is mounted into
+# /docker-entrypoint-initdb.d, so any .sql/.sh key here runs (alphabetically)
+# on FIRST initialisation only (i.e. when the data dir is empty).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-init-script
+  labels:
+    app: mysql
+    tier: database
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS `student`;
+    USE `student`;
+    CREATE TABLE IF NOT EXISTS `users` (
+        `id` INT NOT NULL AUTO_INCREMENT,
+        `name` VARCHAR(100) NOT NULL,
+        `email` VARCHAR(100) NOT NULL,
+        `phone` VARCHAR(100) NOT NULL,
+        `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+    );
+    INSERT INTO `users` (`name`, `email`, `phone`) VALUES
+    ('John Doe', 'john.doe@example.com', '9988110022'),
+    ('David',    'david@example.com',    '9110023410'),
+    ('Glenn',    'glenn@example.com',    '9100110022'),
+    ('Peter',    'peter@example.com',    '9098761023'),
+    ('Sarah',    'sarah@example.com',    '9090011223'),
+    ('Michael',  'michael@example.com',  '9080012234');

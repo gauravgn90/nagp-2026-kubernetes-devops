@@ -1,0 +1,16 @@
+# Headless service (clusterIP: None) – webapp reaches MySQL via DNS name "mysql".
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    app: mysql
+    tier: database
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+  selector:
+    app: mysql
+    tier: database
+  clusterIP: None

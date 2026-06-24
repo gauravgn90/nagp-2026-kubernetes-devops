@@ -1,0 +1,21 @@
+# PVC for MySQL storage.
+# FIXED: added storageClassName: manual (so it binds the static PV, not a
+# default dynamic class) and the selector now matches the PV's labels.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+  labels:
+    app: mysql
+    tier: database
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  resources:
+    requests:
+      storage: 1Gi
+  selector:
+    matchLabels:
+      app: mysql
+      tier: database

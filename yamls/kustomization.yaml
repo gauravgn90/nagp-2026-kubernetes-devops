@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: student-app
+resources:
+  - 00-namespace.yaml
+  - 01-manual-storageclass.yaml
+  - 02-mysql-pv.yaml
+  - 03-mysql-secret.yaml
+  - 04-mysql-config.yaml
+  - 05-mysql-init-script-config.yaml
+  - 06-mysql-pvc.yaml
+  - 07-mysql-deployment.yaml
+  - 08-mysql-service.yaml
+  - 09-webapp-deployment.yaml
+  - 10-webapp-service.yaml
+  - 11-webapp-hpa.yaml
+  - 12-webapp-ingress.yaml
